@@ -2,10 +2,15 @@ FROM nginx:alpine
 
 WORKDIR /usr/share/nginx/html
 
-COPY dist/ ./
+# Remove default nginx content
+RUN rm -rf ./*
 
-RUN rm index.html && ln -s /index.html index.html
+# Copy static files directly
+COPY index.html .
+COPY app.js .
+COPY pay-bill.html .
+
+# Optional: custom nginx config
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80
-
-CMD ["nginx", "-g", "daemon_off;"]
