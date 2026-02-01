@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title.Pay Bill</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+    }
+    form {
+      width: 300px;
+      margin: 0 auto;
+      padding: 20px;
+      border: 1px solid #ccc;
+      box-shadow: 0 0 10px rgba(0,0,0,.2);
+    }
+    label, input[type="number"], select {
+      display: block;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1.Pay Bill</h1>
+  <form id="pay-bill-form">
+    <label for="amount">Amount:</label>
+    <input type="number" id="amount" placeholder="Enter amount">
+    <br><br>
+    <label for="bill-type">Bill Type:</label>
+    <select id="bill-type">
+      <option value="electricity">Electricity</option>
+      <option value="water">Water</option>
+      <option value="gas">Gas</option>
+    </select>
+    <br><br>
+    <button type="submit">Pay Bill</button>
+  </form>
+  
+  <script src="app.js"></script>
+</body>
+</html>
