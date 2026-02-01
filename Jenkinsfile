@@ -8,7 +8,7 @@ apiVersion: v1
 kind: Pod
 spec:
   containers:
-    # Docker daemon (DinD)
+    # Docker daemon + CLI
     - name: docker
       image: docker:24-dind
       securityContext:
@@ -22,15 +22,15 @@ spec:
       volumeMounts:
         - name: docker-sock
           mountPath: /var/run
+        - name: workspace-volume
+          mountPath: /home/jenkins/agent
 
-    # Python + kubectl container
+    # Python + kubectl
     - name: python
       image: python:3.11
       command: ["cat"]
       tty: true
       volumeMounts:
-        - name: docker-sock
-          mountPath: /var/run
         - name: workspace-volume
           mountPath: /home/jenkins/agent
 
@@ -50,14 +50,10 @@ spec:
         }
     }
 
-    parameters {
-        choice(name: 'ENV', choices: ['dev', 'prod'], description: 'Choose environment')
-    }
-
     environment {
         FRONTEND_IMAGE_TAG = "latest"
         BACKEND_IMAGE_TAG  = "latest"
-        IMAGE_REGISTRY     = ""     // e.g. docker.io/yourname
+        IMAGE_REGISTRY     = ""
         K8S_NAMESPACE      = "billpay"
     }
 
@@ -75,7 +71,6 @@ spec:
                 container('python') {
                     dir('backend') {
                         sh 'pip install -r requirements.txt'
-                        archiveArtifacts artifacts: '*.py', onlyIfSuccessful: true
                     }
                 }
             }
@@ -83,7 +78,7 @@ spec:
 
         stage('Build Docker Images') {
             steps {
-                container('python') {
+                container('docker') {
                     sh 'docker version'
                     sh 'docker build -t frontend:${FRONTEND_IMAGE_TAG} frontend/'
                     sh 'docker build -t backend:${BACKEND_IMAGE_TAG} backend/'
@@ -96,7 +91,7 @@ spec:
                 expression { env.IMAGE_REGISTRY?.trim() }
             }
             steps {
-                container('python') {
+                container('docker') {
                     sh '''
                       docker tag frontend:${FRONTEND_IMAGE_TAG} ${IMAGE_REGISTRY}/frontend:${FRONTEND_IMAGE_TAG}
                       docker push ${IMAGE_REGISTRY}/frontend:${FRONTEND_IMAGE_TAG}
