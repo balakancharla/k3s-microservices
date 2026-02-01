@@ -16,6 +16,6 @@ spec:
       containers:
         - name: backend
           image: balakancharla79/backend:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 8081
