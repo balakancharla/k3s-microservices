@@ -8,23 +8,42 @@ apiVersion: v1
 kind: Pod
 spec:
   containers:
+    # Docker daemon (DinD)
+    - name: docker
+      image: docker:24-dind
+      securityContext:
+        privileged: true
+      env:
+        - name: DOCKER_TLS_CERTDIR
+          value: ""
+      command:
+        - dockerd
+        - --host=unix:///var/run/docker.sock
+      volumeMounts:
+        - name: docker-sock
+          mountPath: /var/run
+
+    # Python + kubectl container
     - name: python
       image: python:3.11
-      command:
-        - cat
+      command: ["cat"]
       tty: true
+      volumeMounts:
+        - name: docker-sock
+          mountPath: /var/run
+        - name: workspace-volume
+          mountPath: /home/jenkins/agent
+
+    # Jenkins agent
+    - name: jnlp
+      image: jenkins/inbound-agent:latest
       volumeMounts:
         - name: workspace-volume
           mountPath: /home/jenkins/agent
-    - name: docker
-      image: docker:24
-      command:
-        - cat
-      tty: true
-      volumeMounts:
-        - name: workspace-volume
-          mountPath: /home/jenkins/agent
+
   volumes:
+    - name: docker-sock
+      emptyDir: {}
     - name: workspace-volume
       emptyDir: {}
 """
@@ -32,20 +51,22 @@ spec:
     }
 
     parameters {
-        choice(name: 'ENV', choices: ['dev', 'prod'], description: 'Choose your environment')
+        choice(name: 'ENV', choices: ['dev', 'prod'], description: 'Choose environment')
     }
 
     environment {
         FRONTEND_IMAGE_TAG = "latest"
-        BACKEND_IMAGE_TAG = "latest"
-        IMAGE_REGISTRY = ""  // leave blank if not pushing
-        K8S_NAMESPACE = "billpay"
+        BACKEND_IMAGE_TAG  = "latest"
+        IMAGE_REGISTRY     = ""     // e.g. docker.io/yourname
+        K8S_NAMESPACE      = "billpay"
     }
 
     stages {
+
         stage('Checkout') {
             steps {
-                git branch: 'main', url: 'https://github.com/balakancharla/k3s-microservices.git'
+                git branch: 'main',
+                    url: 'https://github.com/balakancharla/k3s-microservices.git'
             }
         }
 
@@ -62,10 +83,9 @@ spec:
 
         stage('Build Docker Images') {
             steps {
-                container('docker') {
-                    // Build frontend static site image
+                container('python') {
+                    sh 'docker version'
                     sh 'docker build -t frontend:${FRONTEND_IMAGE_TAG} frontend/'
-                    // Build backend image
                     sh 'docker build -t backend:${BACKEND_IMAGE_TAG} backend/'
                 }
             }
@@ -76,11 +96,14 @@ spec:
                 expression { env.IMAGE_REGISTRY?.trim() }
             }
             steps {
-                container('docker') {
-                    sh 'docker tag frontend:${FRONTEND_IMAGE_TAG} ${IMAGE_REGISTRY}/frontend:${FRONTEND_IMAGE_TAG}'
-                    sh 'docker push ${IMAGE_REGISTRY}/frontend:${FRONTEND_IMAGE_TAG}'
-                    sh 'docker tag backend:${BACKEND_IMAGE_TAG} ${IMAGE_REGISTRY}/backend:${BACKEND_IMAGE_TAG}'
-                    sh 'docker push ${IMAGE_REGISTRY}/backend:${BACKEND_IMAGE_TAG}'
+                container('python') {
+                    sh '''
+                      docker tag frontend:${FRONTEND_IMAGE_TAG} ${IMAGE_REGISTRY}/frontend:${FRONTEND_IMAGE_TAG}
+                      docker push ${IMAGE_REGISTRY}/frontend:${FRONTEND_IMAGE_TAG}
+
+                      docker tag backend:${BACKEND_IMAGE_TAG} ${IMAGE_REGISTRY}/backend:${BACKEND_IMAGE_TAG}
+                      docker push ${IMAGE_REGISTRY}/backend:${BACKEND_IMAGE_TAG}
+                    '''
                 }
             }
         }
@@ -98,8 +121,8 @@ spec:
         stage('Verify Deployment') {
             steps {
                 container('python') {
-                    sh 'kubectl get pods -n $K8S_NAMESPACE'
-                    sh 'kubectl get svc -n $K8S_NAMESPACE'
+                    sh 'kubectl get pods -n ${K8S_NAMESPACE}'
+                    sh 'kubectl get svc -n ${K8S_NAMESPACE}'
                 }
             }
         }
