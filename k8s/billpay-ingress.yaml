@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: billpay-ingress
+  namespace: billpay
+  annotations:
+    kubernetes.io/ingress.class: "traefik"  # use nginx if nginx ingress
+spec:
+  rules:
+  - host: localhost
+    http:
+      paths:
+      - path: /frontend
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend
+            port:
+              number: 80
+      - path: /backend
+        pathType: Prefix
+        backend:
+          service:
+            name: backend
+            port:
+              number: 8081
