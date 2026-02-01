@@ -96,7 +96,27 @@ spec:
                 }
             }
         }
+        stage('Authenticate and Push') {
+            steps {
+                container('docker') {
+                    withCredentials([usernamePassword(
+                        credentialsId: "${DOCKER_CREDENTIALS_ID}",
+                        usernameVariable: 'U',
+                        passwordVariable: 'P'
+                    )]) {
+                        sh '''
+                        export DOCKER_HOST=tcp://127.0.0.1:2375
+                        echo "$P" | docker login -u "$U" --password-stdin
+                        docker tag frontend:latest $IMAGE_REGISTRY/frontend:latest
+						docker tag backend:latest  $IMAGE_REGISTRY/backend:latest
 
+						docker push $IMAGE_REGISTRY/frontend:latest
+						docker push $IMAGE_REGISTRY/backend:latest
+                        '''
+                    }
+                }
+            }
+        }
         stage('Deploy to k3s') {
             steps {
                 container('kubectl') {
