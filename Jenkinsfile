@@ -53,6 +53,8 @@ spec:
 
     environment {
         DOCKER_HOST = "tcp://127.0.0.1:2375"
+        DOCKER_CREDENTIALS_ID = 'BalaDockerTKN'
+        IMAGE_REGISTRY = 'balakancharla79'
         FRONTEND_IMAGE_TAG = "latest"
         BACKEND_IMAGE_TAG  = "latest"
         K8S_NAMESPACE      = "billpay"
