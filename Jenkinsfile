@@ -132,6 +132,17 @@ spec:
                 }
             }
         }
+        stage('Apply Ingress') {
+    steps {
+        container('kubectl') {
+            sh '''
+            echo "Applying Ingress for frontend/backend"
+            kubectl apply -f k8s/billpay-ingress.yaml
+            kubectl get ingress -n billpay
+            '''
+        }
+    }
+}
 
         stage('Verify Deployment') {
             steps {
