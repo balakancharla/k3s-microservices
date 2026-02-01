@@ -1,14 +1,12 @@
 pipeline {
     agent {
         kubernetes {
-            label 'microservices'
             defaultContainer 'jnlp'
             yaml """
 apiVersion: v1
 kind: Pod
 spec:
   containers:
-    # Docker daemon + CLI
     - name: docker
       image: docker:24-dind
       securityContext:
@@ -25,7 +23,6 @@ spec:
         - name: workspace-volume
           mountPath: /home/jenkins/agent
 
-    # Python + kubectl
     - name: python
       image: python:3.11
       command: ["cat"]
@@ -34,9 +31,10 @@ spec:
         - name: workspace-volume
           mountPath: /home/jenkins/agent
 
-    # Jenkins agent
-    - name: jnlp
-      image: jenkins/inbound-agent:latest
+    - name: kubectl
+      image: bitnami/kubectl:latest
+      command: ["cat"]
+      tty: true
       volumeMounts:
         - name: workspace-volume
           mountPath: /home/jenkins/agent
@@ -50,15 +48,18 @@ spec:
         }
     }
 
+    parameters {
+        choice(name: 'ENV', choices: ['dev', 'prod'], description: 'Choose environment')
+    }
+
     environment {
         FRONTEND_IMAGE_TAG = "latest"
         BACKEND_IMAGE_TAG  = "latest"
-        IMAGE_REGISTRY     = ""
-        K8S_NAMESPACE      = "billpay"
+        IMAGE_REGISTRY    = ""
+        K8S_NAMESPACE     = "billpay"
     }
 
     stages {
-
         stage('Checkout') {
             steps {
                 git branch: 'main',
@@ -92,20 +93,17 @@ spec:
             }
             steps {
                 container('docker') {
-                    sh '''
-                      docker tag frontend:${FRONTEND_IMAGE_TAG} ${IMAGE_REGISTRY}/frontend:${FRONTEND_IMAGE_TAG}
-                      docker push ${IMAGE_REGISTRY}/frontend:${FRONTEND_IMAGE_TAG}
-
-                      docker tag backend:${BACKEND_IMAGE_TAG} ${IMAGE_REGISTRY}/backend:${BACKEND_IMAGE_TAG}
-                      docker push ${IMAGE_REGISTRY}/backend:${BACKEND_IMAGE_TAG}
-                    '''
+                    sh 'docker tag frontend:${FRONTEND_IMAGE_TAG} ${IMAGE_REGISTRY}/frontend:${FRONTEND_IMAGE_TAG}'
+                    sh 'docker push ${IMAGE_REGISTRY}/frontend:${FRONTEND_IMAGE_TAG}'
+                    sh 'docker tag backend:${BACKEND_IMAGE_TAG} ${IMAGE_REGISTRY}/backend:${BACKEND_IMAGE_TAG}'
+                    sh 'docker push ${IMAGE_REGISTRY}/backend:${BACKEND_IMAGE_TAG}'
                 }
             }
         }
 
         stage('Deploy to k3s') {
             steps {
-                container('python') {
+                container('kubectl') {
                     sh 'kubectl apply -f k8s/namespace.yaml'
                     sh 'kubectl apply -f k8s/backend.yaml'
                     sh 'kubectl apply -f k8s/frontend.yaml'
@@ -115,9 +113,9 @@ spec:
 
         stage('Verify Deployment') {
             steps {
-                container('python') {
-                    sh 'kubectl get pods -n ${K8S_NAMESPACE}'
-                    sh 'kubectl get svc -n ${K8S_NAMESPACE}'
+                container('kubectl') {
+                    sh 'kubectl get pods -n $K8S_NAMESPACE'
+                    sh 'kubectl get svc -n $K8S_NAMESPACE'
                 }
             }
         }
