@@ -8,18 +8,21 @@ kind: Pod
 spec:
   containers:
     - name: docker
-      image: docker:24-dind
+      image: docker:24.0.2-dind
       securityContext:
         privileged: true
+      command:
+        - dockerd-entrypoint.sh
+      args:
+        - --host=tcp://0.0.0.0:2375
+        - --host=unix:///var/run/docker.sock
       env:
         - name: DOCKER_TLS_CERTDIR
           value: ""
-      command:
-        - dockerd
-        - --host=unix:///var/run/docker.sock
+      tty: true
       volumeMounts:
-        - name: docker-sock
-          mountPath: /var/run
+        - name: docker-graph-storage
+          mountPath: /var/lib/docker
         - name: workspace-volume
           mountPath: /home/jenkins/agent
 
@@ -32,18 +35,15 @@ spec:
           mountPath: /home/jenkins/agent
 
     - name: kubectl
-      image: bitnami/kubectl:latest
-      command:
-        - /bin/sh
-        - -c
-        - "sleep 365d"
+      image: lachlanevenson/k8s-kubectl:latest
+      command: ["cat"]
       tty: true
       volumeMounts:
         - name: workspace-volume
           mountPath: /home/jenkins/agent
 
   volumes:
-    - name: docker-sock
+    - name: docker-graph-storage
       emptyDir: {}
     - name: workspace-volume
       emptyDir: {}
@@ -51,22 +51,17 @@ spec:
         }
     }
 
-    parameters {
-        choice(name: 'ENV', choices: ['dev', 'prod'], description: 'Choose environment')
-    }
-
     environment {
+        DOCKER_HOST = "tcp://127.0.0.1:2375"
         FRONTEND_IMAGE_TAG = "latest"
         BACKEND_IMAGE_TAG  = "latest"
-        IMAGE_REGISTRY    = ""
-        K8S_NAMESPACE     = "billpay"
+        K8S_NAMESPACE      = "billpay"
     }
 
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main',
-                    url: 'https://github.com/balakancharla/k3s-microservices.git'
+                checkout scm
             }
         }
 
@@ -83,23 +78,21 @@ spec:
         stage('Build Docker Images') {
             steps {
                 container('docker') {
-                    sh 'docker version'
-                    sh 'docker build -t frontend:${FRONTEND_IMAGE_TAG} frontend/'
-                    sh 'docker build -t backend:${BACKEND_IMAGE_TAG} backend/'
-                }
-            }
-        }
-
-        stage('Push Docker Images') {
-            when {
-                expression { env.IMAGE_REGISTRY?.trim() }
-            }
-            steps {
-                container('docker') {
-                    sh 'docker tag frontend:${FRONTEND_IMAGE_TAG} ${IMAGE_REGISTRY}/frontend:${FRONTEND_IMAGE_TAG}'
-                    sh 'docker push ${IMAGE_REGISTRY}/frontend:${FRONTEND_IMAGE_TAG}'
-                    sh 'docker tag backend:${BACKEND_IMAGE_TAG} ${IMAGE_REGISTRY}/backend:${BACKEND_IMAGE_TAG}'
-                    sh 'docker push ${IMAGE_REGISTRY}/backend:${BACKEND_IMAGE_TAG}'
+                    sh '''
+                    echo "Waiting for Docker daemon..."
+                    i=0
+                    while ! docker info >/dev/null 2>&1; do
+                      i=$((i+1))
+                      if [ "$i" -gt 15 ]; then
+                        echo "Docker not ready"
+                        exit 1
+                      fi
+                      sleep 2
+                    done
+                    docker version
+                    docker build -t frontend:${FRONTEND_IMAGE_TAG} frontend/
+                    docker build -t backend:${BACKEND_IMAGE_TAG} backend/
+                    '''
                 }
             }
         }
@@ -107,9 +100,11 @@ spec:
         stage('Deploy to k3s') {
             steps {
                 container('kubectl') {
-                    sh 'kubectl apply -f k8s/namespace.yaml'
-                    sh 'kubectl apply -f k8s/backend.yaml'
-                    sh 'kubectl apply -f k8s/frontend.yaml'
+                    sh '''
+                    kubectl apply -f k8s/namespace.yaml
+                    kubectl apply -f k8s/backend.yaml
+                    kubectl apply -f k8s/frontend.yaml
+                    '''
                 }
             }
         }
@@ -117,8 +112,10 @@ spec:
         stage('Verify Deployment') {
             steps {
                 container('kubectl') {
-                    sh 'kubectl get pods -n $K8S_NAMESPACE'
-                    sh 'kubectl get svc -n $K8S_NAMESPACE'
+                    sh '''
+                    kubectl get pods -n billpay
+                    kubectl get svc -n billpay
+                    '''
                 }
             }
         }
