@@ -16,14 +16,6 @@ spec:
       volumeMounts:
         - name: workspace-volume
           mountPath: /home/jenkins/agent
-    - name: node
-      image: node:20
-      command:
-        - cat
-      tty: true
-      volumeMounts:
-        - name: workspace-volume
-          mountPath: /home/jenkins/agent
     - name: docker
       image: docker:24
       command:
@@ -46,7 +38,7 @@ spec:
     environment {
         FRONTEND_IMAGE_TAG = "latest"
         BACKEND_IMAGE_TAG = "latest"
-        IMAGE_REGISTRY = "" 
+        IMAGE_REGISTRY = ""  // leave blank if not pushing
         K8S_NAMESPACE = "billpay"
     }
 
@@ -54,18 +46,6 @@ spec:
         stage('Checkout') {
             steps {
                 git branch: 'main', url: 'https://github.com/balakancharla/k3s-microservices.git'
-            }
-        }
-
-        stage('Build Frontend') {
-            steps {
-                container('node') {
-                    dir('frontend') {
-                        sh 'npm install'
-                        sh 'npm run build'
-                        archiveArtifacts artifacts: 'dist/**/*', onlyIfSuccessful: true
-                    }
-                }
             }
         }
 
@@ -83,7 +63,9 @@ spec:
         stage('Build Docker Images') {
             steps {
                 container('docker') {
+                    // Build frontend static site image
                     sh 'docker build -t frontend:${FRONTEND_IMAGE_TAG} frontend/'
+                    // Build backend image
                     sh 'docker build -t backend:${BACKEND_IMAGE_TAG} backend/'
                 }
             }
