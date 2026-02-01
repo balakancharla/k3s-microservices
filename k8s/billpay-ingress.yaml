@@ -3,24 +3,25 @@ kind: Ingress
 metadata:
   name: billpay-ingress
   namespace: billpay
-  annotations:
-    kubernetes.io/ingress.class: "traefik"  # use nginx if nginx ingress
 spec:
+  ingressClassName: traefik  # <-- use 'nginx' if you have nginx ingress instead
   rules:
-  - host: localhost
-    http:
-      paths:
-      - path: /frontend
-        pathType: Prefix
-        backend:
-          service:
-            name: frontend
-            port:
-              number: 80
-      - path: /backend
-        pathType: Prefix
-        backend:
-          service:
-            name: backend
-            port:
-              number: 8081
+    - host: localhost
+      http:
+        paths:
+          # Frontend path
+          - path: /frontend
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+          # Backend path
+          - path: /backend
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8081
