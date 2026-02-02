@@ -1,52 +1,63 @@
 (function () {
   'use strict';
-  
+
   const loginForm = document.getElementById('login-form');
   const payBillForm = document.getElementById('pay-bill-form');
-  
-  loginForm.addEventListener('submit', (e) => {
+
+  // Hide pay bill form initially
+  payBillForm.style.display = 'none';
+
+  loginForm.addEventListener('submit', function (e) {
     e.preventDefault();
+
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
-    
-    fetch(`/backend/login?username=${username}&password=${password}`)
-      .then((response) => response.text())
-      .then((data) => {
-        if (data === 'success') {
-          // Show successful login message
-          alert('Login successful!');
-          // Hide login form and show pay bill form
-          loginForm.style.display = 'none';
-          payBillForm.style.display = 'block';
-        } else {
-          // Show error message
-          alert('Invalid username or password');
-        }
+
+    fetch('/api/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ username, password })
+    })
+      .then(response => {
+        if (!response.ok) throw new Error('Login failed');
+        return response.json();
       })
-      .catch((error) => {
-        console.error(error);
+      .then(data => {
+        alert(data.message);
+
+        // ✅ Show next section instead of reloading page
+        loginForm.style.display = 'none';
+        payBillForm.style.display = 'block';
+      })
+      .catch(() => {
+        alert('Invalid username or password');
       });
   });
-  
-  payBillForm.addEventListener('submit', (e) => {
+
+  payBillForm.addEventListener('submit', function (e) {
     e.preventDefault();
+
     const amount = document.getElementById('amount').value;
     const billType = document.getElementById('bill-type').value;
-    
-    fetch(`/backend/pay-bill?amount=${amount}&bill-type=${billType}`)
-      .then((response) => response.text())
-      .then((data) => {
-        if (data === 'success') {
-          // Show successful payment message
-          alert('Bill payment completed successfully!');
-        } else {
-          // Show error message
-          alert('Payment failed');
-        }
+
+    fetch('/api/pay-bill', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ amount, billType })
+    })
+      .then(response => {
+        if (!response.ok) throw new Error('Payment failed');
+        return response.json();
       })
-      .catch((error) => {
-        console.error(error);
+      .then(data => {
+        alert(data.message);
+      })
+      .catch(() => {
+        alert('Payment failed');
       });
   });
 })();
-```
