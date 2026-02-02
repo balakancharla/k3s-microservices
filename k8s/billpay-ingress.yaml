@@ -6,7 +6,8 @@ metadata:
 spec:
   ingressClassName: traefik  # <-- use 'nginx' if you have nginx ingress instead
   rules:
-    - http:
+    - host: billpay.local
+      http:
         paths:
           # Frontend path
           - path: /
@@ -16,4 +17,11 @@ spec:
                 name: frontend
                 port:
                   number: 80
-          
+          # Backend path
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8081
