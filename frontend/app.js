@@ -13,7 +13,7 @@
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
 
-    fetch('/api/login', {
+    fetch('/backend/api/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -42,7 +42,7 @@
     const amount = document.getElementById('amount').value;
     const billType = document.getElementById('bill-type').value;
 
-    fetch('/api/pay-bill', {
+    fetch('/backend/api/pay-bill', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
