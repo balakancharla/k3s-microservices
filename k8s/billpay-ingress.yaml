@@ -6,7 +6,7 @@ metadata:
 spec:
   ingressClassName: traefik  # <-- use 'nginx' if you have nginx ingress instead
   rules:
-    - host: localhost
+    - host: 172.19.130.166
       http:
         paths:
           # Frontend path
