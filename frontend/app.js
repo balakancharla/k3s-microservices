@@ -9,7 +9,7 @@
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
     
-    fetch(`http://backend:8080/login?username=${username}&password=${password}`)
+    fetch(`/backend/login?username=${username}&password=${password}`)
       .then((response) => response.text())
       .then((data) => {
         if (data === 'success') {
@@ -33,7 +33,7 @@
     const amount = document.getElementById('amount').value;
     const billType = document.getElementById('bill-type').value;
     
-    fetch(`http://backend:8080/pay-bill?amount=${amount}&bill-type=${billType}`)
+    fetch(`/backend/pay-bill?amount=${amount}&bill-type=${billType}`)
       .then((response) => response.text())
       .then((data) => {
         if (data === 'success') {
